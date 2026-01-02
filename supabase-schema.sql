@@ -62,3 +62,18 @@ CREATE POLICY "Users see own diagnoses" ON diagnoses FOR ALL USING (
   build_id IN (SELECT id FROM builds WHERE pipeline_id IN (SELECT id FROM pipelines WHERE user_id = auth.uid()))
 );
 
+-- Trigger per creare profile automaticamente quando un utente si registra
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger AS $$
+BEGIN
+  INSERT INTO public.profiles (id, email)
+  VALUES (new.id, new.email)
+  ON CONFLICT (id) DO NOTHING;
+  RETURN new;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
