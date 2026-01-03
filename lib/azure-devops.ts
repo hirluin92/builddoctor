@@ -142,18 +142,12 @@ export async function createServiceHook(
     resourceVersion: "1.0",
     consumerId: "webHooks",
     consumerActionId: "httpRequest",
-    consumerInputs: {
-      url: webhookUrl,
-      // Nota: Azure DevOps non calcola automaticamente HMAC.
-      // Il secret viene passato come header per riferimento, ma la validazione HMAC
-      // viene fatta nel webhook receiver usando il secret dal database.
-      httpHeaders: JSON.stringify({
-        "X-Hub-Signature": secret,
-      }),
-    },
     publisherInputs: {
       projectId: projectId,
-      definitionId: pipelineId,
+      buildStatus: "failed",
+    },
+    consumerInputs: {
+      url: webhookUrl,
     },
   };
 
