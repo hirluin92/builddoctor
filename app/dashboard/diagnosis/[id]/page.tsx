@@ -17,8 +17,9 @@ import { CodeBlock } from "@/components/code-block";
 export default async function DiagnosisPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
+  const { id } = await params;
   const isMock = process.env.NEXT_PUBLIC_DEVOPS_MODE === "mock";
 
   // In mock mode, salta il controllo autenticazione
@@ -46,7 +47,7 @@ export default async function DiagnosisPage({
       )
     `
     )
-    .eq("id", params.id)
+    .eq("id", id)
     .single();
 
   if (error || !diagnosis) {
