@@ -4,6 +4,67 @@ import { createServiceHook } from "@/lib/azure-devops";
 import { randomBytes } from "crypto";
 
 export async function POST(request: NextRequest) {
+  const isMock = process.env.DEVOPS_MODE === "mock";
+
+  // Mock mode: salva pipeline senza creare webhook reale
+  if (isMock) {
+    try {
+      const supabase = await createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+
+      const { projectId, projectName, pipelineId, pipelineName } =
+        await request.json();
+
+      if (!projectId || !pipelineId) {
+        return NextResponse.json(
+          { error: "Project and pipeline required" },
+          { status: 400 }
+        );
+      }
+
+      // Genera webhook secret mock
+      const webhookSecret = randomBytes(32).toString("hex");
+
+      // Salva pipeline nel DB (senza creare webhook reale)
+      const { error: dbError } = await supabase.from("pipelines").insert({
+        user_id: user.id,
+        azure_project_id: projectId,
+        azure_project_name: projectName,
+        azure_pipeline_id: pipelineId,
+        azure_pipeline_name: pipelineName,
+        webhook_secret: webhookSecret,
+        is_active: true,
+      });
+
+      if (dbError) {
+        console.error("Error saving pipeline:", dbError);
+        return NextResponse.json(
+          { error: "Failed to save pipeline" },
+          { status: 500 }
+        );
+      }
+
+      return NextResponse.json({
+        success: true,
+        mode: "mock",
+        hookId: "mock-hook-id",
+      });
+    } catch (error) {
+      console.error("Error in mock setup-webhook:", error);
+      return NextResponse.json(
+        { error: "Internal server error" },
+        { status: 500 }
+      );
+    }
+  }
+
+  // Real mode: flusso normale
   try {
     const supabase = await createClient();
     const {

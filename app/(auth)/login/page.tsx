@@ -5,10 +5,23 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Github } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 
 export default function LoginPage() {
   const router = useRouter();
   const supabase = createClient();
+  const isMock = process.env.NEXT_PUBLIC_DEVOPS_MODE === "mock";
+
+  // In mock mode, redirect automatico alla dashboard
+  useEffect(() => {
+    if (isMock) {
+      router.push("/dashboard");
+    }
+  }, [isMock, router]);
+
+  if (isMock) {
+    return null;
+  }
 
   const handleLogin = async () => {
     const { error } = await supabase.auth.signInWithOAuth({

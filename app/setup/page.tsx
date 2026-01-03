@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -21,8 +21,63 @@ interface Pipeline {
 
 export default function SetupPage() {
   const router = useRouter();
+  const isMock = process.env.NEXT_PUBLIC_DEVOPS_MODE === "mock";
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
+
+  // In mock mode, auto-completa setup e redirect
+  useEffect(() => {
+    if (isMock) {
+      const autoSetup = async () => {
+        try {
+          // Carica progetti mock
+          const projectsRes = await fetch("/api/azure-devops/projects");
+          const projectsData = await projectsRes.json();
+          if (projectsData.projects) {
+            setProjects(projectsData.projects);
+            if (projectsData.projects.length > 0) {
+              setSelectedProject(projectsData.projects[0].id);
+              // Carica pipeline mock
+              const pipelinesRes = await fetch(`/api/azure-devops/pipelines?project=${projectsData.projects[0].id}`);
+              const pipelinesData = await pipelinesRes.json();
+              if (pipelinesData.pipelines && pipelinesData.pipelines.length > 0) {
+                setPipelines(pipelinesData.pipelines);
+                setSelectedPipeline(pipelinesData.pipelines[0].id.toString());
+              }
+            }
+          }
+
+          // Attiva monitoraggio mock
+          if (projectsData.projects && projectsData.projects.length > 0) {
+            const project = projectsData.projects[0];
+            const pipelinesRes = await fetch(`/api/azure-devops/pipelines?project=${project.id}`);
+            const pipelinesData = await pipelinesRes.json();
+            if (pipelinesData.pipelines && pipelinesData.pipelines.length > 0) {
+              const pipeline = pipelinesData.pipelines[0];
+              await fetch("/api/azure-devops/setup-webhook", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  projectId: project.id,
+                  projectName: project.name,
+                  pipelineId: pipeline.id.toString(),
+                  pipelineName: pipeline.name,
+                }),
+              });
+            }
+          }
+
+          toast.success("Mock setup completato!");
+          setTimeout(() => router.push("/dashboard"), 1000);
+        } catch (error) {
+          console.error("Error in auto-setup:", error);
+          router.push("/dashboard");
+        }
+      };
+
+      autoSetup();
+    }
+  }, [isMock, router]);
 
   // Step 1: Azure DevOps
   const [organization, setOrganization] = useState("");

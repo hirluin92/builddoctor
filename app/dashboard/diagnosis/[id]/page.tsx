@@ -19,16 +19,22 @@ export default async function DiagnosisPage({
 }: {
   params: { id: string };
 }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const isMock = process.env.NEXT_PUBLIC_DEVOPS_MODE === "mock";
 
-  if (!user) {
-    redirect("/login");
+  // In mock mode, salta il controllo autenticazione
+  if (!isMock) {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      redirect("/login");
+    }
   }
 
   // Fetch diagnosis con join a build e pipeline
+  const supabase = await createClient();
   const { data: diagnosis, error } = await supabase
     .from("diagnoses")
     .select(
@@ -55,13 +61,12 @@ export default async function DiagnosisPage({
   }
 
   // Recupera org dal profile
-  const { data: profile } = await supabase
+  const org = isMock ? "demo-org" : (await supabase
     .from("profiles")
     .select("azure_devops_org")
-    .eq("id", user.id)
-    .single();
+    .eq("id", build.user_id || "")
+    .single())?.data?.azure_devops_org || "unknown";
 
-  const org = profile?.azure_devops_org || "unknown";
   const azureUrl = `https://dev.azure.com/${org}/${pipeline.azure_project_name}/_build/results?buildId=${build.azure_build_id}`;
 
   return (

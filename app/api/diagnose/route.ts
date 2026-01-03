@@ -3,8 +3,70 @@ import { createClient } from "@/lib/supabase/server";
 import { getBuildLogs } from "@/lib/azure-devops";
 import { diagnoseBuild } from "@/lib/ai";
 import { sendDiagnosis } from "@/lib/slack";
+import { mockDevOpsData } from "@/lib/mocks/devops.mock";
 
 export async function POST(request: NextRequest) {
+  const isMock = process.env.DEVOPS_MODE === "mock";
+
+  // Mock mode: ritorna dati finti
+  if (isMock) {
+    try {
+      const { buildId } = await request.json();
+
+      // Simula diagnosi AI con dati mock
+      const diagnosis = await diagnoseBuild(mockDevOpsData.logs);
+
+      // In mock mode, salva comunque nel DB se possibile (opzionale)
+      const supabase = await createClient();
+      if (buildId) {
+        try {
+          await supabase.from("diagnoses").insert({
+            build_id: buildId,
+            error_category: diagnosis.category,
+            root_cause: diagnosis.rootCause,
+            explanation: diagnosis.explanation,
+            suggested_fix: diagnosis.suggestedFix,
+            relevant_logs: diagnosis.relevantLines,
+            confidence: diagnosis.confidence,
+          });
+
+          await supabase
+            .from("builds")
+            .update({ status: "completed" })
+            .eq("id", buildId);
+        } catch (error) {
+          // Ignora errori DB in mock mode
+          console.log("Mock mode: skipping DB operations");
+        }
+      }
+
+      return NextResponse.json({
+        success: true,
+        mode: "mock",
+        diagnosis: {
+          category: diagnosis.category,
+          rootCause: diagnosis.rootCause,
+          explanation: diagnosis.explanation,
+          suggestedFix: diagnosis.suggestedFix,
+          confidence: diagnosis.confidence,
+        },
+      });
+    } catch (error) {
+      return NextResponse.json({
+        success: true,
+        mode: "mock",
+        diagnosis: {
+          category: "compilation",
+          rootCause: "Mock error: Database connection failed",
+          explanation: "This is a mock diagnosis for development purposes",
+          suggestedFix: "Check database connection settings",
+          confidence: 0.85,
+        },
+      });
+    }
+  }
+
+  // Real mode: flusso normale
   try {
     const { buildId } = await request.json();
 

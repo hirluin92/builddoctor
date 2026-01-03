@@ -1,8 +1,17 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getProjects } from "@/lib/azure-devops";
+import { mockProjects } from "@/lib/mocks/devops.mock";
 
 export async function GET() {
+  const isMock = process.env.DEVOPS_MODE === "mock";
+
+  // Mock mode: ritorna progetti mock
+  if (isMock) {
+    return NextResponse.json({ projects: mockProjects, mode: "mock" });
+  }
+
+  // Real mode: flusso normale
   try {
     const supabase = await createClient();
     const {

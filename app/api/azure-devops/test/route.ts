@@ -3,6 +3,39 @@ import { createClient } from "@/lib/supabase/server";
 import { testConnection } from "@/lib/azure-devops";
 
 export async function POST(request: NextRequest) {
+  const isMock = process.env.DEVOPS_MODE === "mock";
+
+  // Mock mode: ritorna sempre successo
+  if (isMock) {
+    try {
+      const supabase = await createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+
+      const { organization, pat } = await request.json();
+
+      // Salva mock data in profile
+      await supabase
+        .from("profiles")
+        .upsert({
+          id: user.id,
+          email: user.email,
+          azure_devops_org: organization || "demo-org",
+          azure_devops_pat: pat || "mock-pat-token",
+        });
+
+      return NextResponse.json({ success: true, mode: "mock" });
+    } catch (error) {
+      return NextResponse.json({ success: true, mode: "mock" });
+    }
+  }
+
+  // Real mode: flusso normale
   try {
     const supabase = await createClient();
     const {
@@ -52,6 +85,37 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
+  const isMock = process.env.DEVOPS_MODE === "mock";
+
+  // Mock mode: salva sempre
+  if (isMock) {
+    try {
+      const supabase = await createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+
+      const { organization, pat } = await request.json();
+
+      await supabase
+        .from("profiles")
+        .upsert({
+          id: user.id,
+          azure_devops_org: organization || "demo-org",
+          azure_devops_pat: pat || "mock-pat-token",
+        });
+
+      return NextResponse.json({ success: true, mode: "mock" });
+    } catch (error) {
+      return NextResponse.json({ success: true, mode: "mock" });
+    }
+  }
+
+  // Real mode: flusso normale
   try {
     const supabase = await createClient();
     const {

@@ -54,24 +54,28 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Proteggi /dashboard/* e /setup
+  const isMock = process.env.NEXT_PUBLIC_DEVOPS_MODE === "mock";
+
+  // Proteggi /dashboard/* e /setup (salta in mock mode)
   if (
     request.nextUrl.pathname.startsWith("/dashboard") ||
     request.nextUrl.pathname.startsWith("/setup")
   ) {
-    if (!user) {
+    if (!isMock && !user) {
       const url = request.nextUrl.clone();
       url.pathname = "/login";
       return NextResponse.redirect(url);
     }
+    // In mock mode o se autenticato, permettere il passaggio
+    return supabaseResponse;
   }
 
-  // Proteggi /login e /callback se già autenticato
+  // Proteggi /login e /callback se già autenticato (o in mock mode)
   if (
     request.nextUrl.pathname.startsWith("/login") ||
     request.nextUrl.pathname.startsWith("/callback")
   ) {
-    if (user) {
+    if (isMock || user) {
       const url = request.nextUrl.clone();
       url.pathname = "/dashboard";
       return NextResponse.redirect(url);
